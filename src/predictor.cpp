@@ -658,8 +658,8 @@ void init_predictor()
     break;
   case CUSTOM:
 	  //init_skew();
-    //init_skew_tournament();
-    init_bimode();
+    init_skew_tournament();
+    //init_bimode();
     break;
   default:
     break;
@@ -684,8 +684,8 @@ uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
     return tournament_predict(pc);
   case CUSTOM:
     //return skew_predict(pc);
-    //return skew_tournament_predict(pc);
-    return bimode_predict(pc);
+    return skew_tournament_predict(pc);
+    //return bimode_predict(pc);
   default:
     break;
   }
@@ -713,8 +713,8 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
       return train_tournament(pc, outcome);
     case CUSTOM:
       //return train_skew(pc, outcome);
-      //return train_skew_tournament(pc, outcome);
-      return train_bimode(pc, outcome);
+      return train_skew_tournament(pc, outcome);
+      //return train_bimode(pc, outcome);
     default:
       break;
     }
