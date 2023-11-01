@@ -643,7 +643,7 @@ void init_tournament()
 
 uint8_t tournament_predict(uint32_t pc)
 {
-  uint32_t gp_index = pc & (gpt_entries - 1);
+  uint32_t gp_index = (pc ^ ghistory) & (gpt_entries - 1);
   uint32_t cp_index = pc & (cpt_entries - 1);
   uint32_t lh_index = pc & (lht_entries - 1);
   uint32_t lp_index = lht_tournament[lh_index] & (lpt_entries - 1);
@@ -661,7 +661,7 @@ uint8_t tournament_predict(uint32_t pc)
 
 void train_tournament(uint32_t pc, uint8_t outcome)
 {
-  uint32_t gp_index = pc & (gpt_entries - 1);
+  uint32_t gp_index = (pc ^ ghistory) & (gpt_entries - 1);
   uint32_t cp_index = pc & (cpt_entries - 1);
   uint32_t lh_index = pc & (lht_entries - 1);
   uint32_t lp_index = lht_tournament[lh_index] & (lpt_entries - 1);
