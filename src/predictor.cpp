@@ -276,7 +276,7 @@ void cleanup_skew_tournament()
   free(cpt_tournament);
 }
 
-/*
+
 // bimode
 uint8_t *choice_table;
 uint32_t choice_entries = 1 << 16;
@@ -308,19 +308,19 @@ void init_bimode()
 
 uint8_t choice_prediction;
 uint8_t direction_prediction;
-uint32_t index;
+uint32_t bindex;
 uint8_t bimode_predict(uint32_t pc)
 {
-	index = pc ^ ghistory;
-	choice_prediction = choice_table[index & (choice_entries - 1)] >> 1;
+	bindex = pc ^ ghistory;
+	choice_prediction = choice_table[bindex & (choice_entries - 1)] >> 1;
 	if (choice_prediction == 1)
 	{
-		direction_prediction = taken_table[index & (taken_entries - 1)] >> 1;
+		direction_prediction = taken_table[bindex & (taken_entries - 1)] >> 1;
 		return direction_prediction;
 	}
 	else
 	{
-		direction_prediction = nottaken_table[index & (nottaken_entries - 1)] >> 1;
+		direction_prediction = nottaken_table[bindex & (nottaken_entries - 1)] >> 1;
 		return direction_prediction;
 	}
 }
@@ -333,16 +333,16 @@ void train_bimode(uint32_t pc, uint8_t outcome)
 		// update the choice table
 		if (outcome == TAKEN)
 		{
-			if (choice_table[index & (choice_entries - 1)] < ST)
+			if (choice_table[bindex & (choice_entries - 1)] < ST)
 			{
-				choice_table[index & (choice_entries - 1)]++;
+				choice_table[bindex & (choice_entries - 1)]++;
 			}
 		}
 		else
 		{
-			if (choice_table[index & (choice_entries - 1)] > SN)
+			if (choice_table[bindex & (choice_entries - 1)] > SN)
 			{
-				choice_table[index & (choice_entries - 1)]--;
+				choice_table[bindex & (choice_entries - 1)]--;
 			}
 		}
 	}
@@ -351,16 +351,16 @@ void train_bimode(uint32_t pc, uint8_t outcome)
 		// choose the taken table
 		if (outcome == TAKEN)
 		{
-			if (taken_table[index & (taken_entries - 1)] < ST)
+			if (taken_table[bindex & (taken_entries - 1)] < ST)
 			{
-				taken_table[index & (taken_entries - 1)]++;
+				taken_table[bindex & (taken_entries - 1)]++;
 			}
 		}
 		else
 		{
-			if (taken_table[index & (taken_entries - 1)] > SN)
+			if (taken_table[bindex & (taken_entries - 1)] > SN)
 			{
-				taken_table[index & (taken_entries - 1)]--;
+				taken_table[bindex & (taken_entries - 1)]--;
 			}
 		}
 	}
@@ -369,17 +369,17 @@ void train_bimode(uint32_t pc, uint8_t outcome)
 		// choose the nottaken table
 		if (outcome == TAKEN)
 		{
-			if (nottaken_table[index & (nottaken_entries - 1)] < ST)
+			if (nottaken_table[bindex & (nottaken_entries - 1)] < ST)
 			{
-				nottaken_table[index & (nottaken_entries - 1)]++;
+				nottaken_table[bindex & (nottaken_entries - 1)]++;
 
 			}
 		}
 		else
 		{
-			if (nottaken_table[index & (nottaken_entries - 1)] > SN)
+			if (nottaken_table[bindex & (nottaken_entries - 1)] > SN)
 			{
-				nottaken_table[index & (nottaken_entries - 1)]--;
+				nottaken_table[bindex & (nottaken_entries - 1)]--;
 			}
 		}
 	}
@@ -392,7 +392,7 @@ void cleanup_bimode()
 	free(taken_table);
 	free(nottaken_table);
 }
-*/
+
 
 // TAGE functions
 void init_TAGE()
@@ -658,7 +658,8 @@ void init_predictor()
     break;
   case CUSTOM:
 	  //init_skew();
-    init_skew_tournament();
+    //init_skew_tournament();
+    init_bimode();
     break;
   default:
     break;
@@ -683,7 +684,8 @@ uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
     return tournament_predict(pc);
   case CUSTOM:
     //return skew_predict(pc);
-    return skew_tournament_predict(pc);
+    //return skew_tournament_predict(pc);
+    return bimode_predict(pc);
   default:
     break;
   }
@@ -711,7 +713,8 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
       return train_tournament(pc, outcome);
     case CUSTOM:
       //return train_skew(pc, outcome);
-      return train_skew_tournament(pc, outcome);
+      //return train_skew_tournament(pc, outcome);
+      return train_bimode(pc, outcome);
     default:
       break;
     }
