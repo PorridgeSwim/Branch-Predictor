@@ -79,8 +79,8 @@ uint8_t *bank2;
 uint32_t two_entries = 1 << 15;
 uint8_t *bank3;
 uint32_t three_entries = 1 << 14;
-uint32_t shift1 = 9;
-uint32_t shift2 = 24;
+uint32_t shift1 = 6;
+uint32_t shift2 = 25;
 void init_skew()
 {
 	int i;
