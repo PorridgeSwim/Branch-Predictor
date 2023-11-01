@@ -71,12 +71,83 @@ uint64_t ghistory;
 
 // Initialize the predictor
 //
+// gshare functions
+void init_gshare()
+{
+  int bht_entries = 1 << ghistoryBits;
+  bht_gshare = (uint8_t *)malloc(bht_entries * sizeof(uint8_t));
+  int i = 0;
+  for (i = 0; i < bht_entries; i++)
+  {
+    bht_gshare[i] = WN;
+  }
+  ghistory = 0;
+}
 
+uint8_t gshare_predict(uint32_t pc)
+{
+  // get lower ghistoryBits of pc
+  uint32_t bht_entries = 1 << ghistoryBits;
+  uint32_t pc_lower_bits = pc & (bht_entries - 1);
+  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
+  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
+  switch (bht_gshare[index])
+  {
+  case WN:
+    return NOTTAKEN;
+  case SN:
+    return NOTTAKEN;
+  case WT:
+    return TAKEN;
+  case ST:
+    return TAKEN;
+  default:
+    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
+    return NOTTAKEN;
+  }
+}
+
+void train_gshare(uint32_t pc, uint8_t outcome)
+{
+  // get lower ghistoryBits of pc
+  uint32_t bht_entries = 1 << ghistoryBits;
+  uint32_t pc_lower_bits = pc & (bht_entries - 1);
+  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
+  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
+
+  // Update state of entry in bht based on outcome
+  switch (bht_gshare[index])
+  {
+  case WN:
+    bht_gshare[index] = (outcome == TAKEN) ? WT : SN;
+    break;
+  case SN:
+    bht_gshare[index] = (outcome == TAKEN) ? WN : SN;
+    break;
+  case WT:
+    bht_gshare[index] = (outcome == TAKEN) ? ST : WN;
+    break;
+  case ST:
+    bht_gshare[index] = (outcome == TAKEN) ? ST : WT;
+    break;
+  default:
+    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
+    break;
+  }
+
+  // Update history register
+  ghistory = ((ghistory << 1) | outcome);
+}
+
+void cleanup_gshare()
+{
+  free(bht_gshare);
+}
 // shew
 uint8_t *bank1;
 uint32_t one_entries = 1 << 14;
 uint8_t *bank2;
-uint32_t two_entries = 1 << 15;
+uint32_t two_entries = 1 << 14;
 uint8_t *bank3;
 uint32_t three_entries = 1 << 14;
 uint32_t shift1 = 6;
@@ -181,7 +252,7 @@ void cleanup_skew()
 }
 
 // skew tournament
-
+/*
 void init_skew_tournament()
 {
   lht_entries = 1 << 11;//11; // local history table in tournament
@@ -214,6 +285,34 @@ void init_skew_tournament()
   ghistory = 0;
   init_skew();
 }
+*/
+uint8_t *choicer;
+void init_skew_tournament()
+{
+  ghistoryBits = 13;
+  init_gshare();
+  init_skew();
+  choicer = (uint8_t *)malloc((1 << 13) * sizeof(uint8_t));
+  int i;
+  for (i = 1; i < (1 << 13); i++)
+  {
+    choicer[i] = WN;
+  }
+}
+uint8_t skew_tournament_predict(uint32_t pc) {
+  uint32_t choicer_index = 1 << 13;
+  choicer_index = (ghistory ^ pc) & (choicer_index - 1);
+  if (choicer[choicer_index] >= WT)
+  {
+    return gshare_predict(pc);
+  }
+  else
+  {
+    return skew_predict(pc);
+  }
+
+}
+/*
 uint8_t skew_tournament_predict(uint32_t pc)
 {
   uint32_t gp_index = (ghistory ^ pc) & (gpt_entries - 1);
@@ -231,6 +330,35 @@ uint8_t skew_tournament_predict(uint32_t pc)
     return skew_predict(pc);
   }
 }
+*/
+
+void train_skew_tournament(uint32_t pc, uint8_t outcome)
+{
+  uint64_t ghcopy = ghistory;
+  uint32_t choicer_index = 1 << 13;
+  choicer_index = (ghistory ^ pc) & (choicer_index - 1);
+  uint8_t skew_result = skew_predict(pc);
+  uint8_t gshare_result = gshare_predict(pc);
+  if (skew_result == outcome && gshare_result != outcome)
+  {
+    if (choicer[choicer_index] > 0) {
+      choicer[choicer_index]--;
+    }
+  }
+  if (skew_result != outcome && gshare_result == outcome)
+  {
+    if (choicer[choicer_index] < 3) {
+      choicer[choicer_index]++;
+    }
+  }
+  train_skew(pc, outcome);
+  ghistory = ghcopy;
+  train_gshare(pc, outcome);
+  ghistory = ghcopy;
+  ghistory = ((ghcopy << 1) | outcome);
+}
+
+/*
 void train_skew_tournament(uint32_t pc, uint8_t outcome)
 {
   uint32_t gp_index = (ghistory ^ pc) & (gpt_entries - 1);
@@ -267,13 +395,15 @@ void train_skew_tournament(uint32_t pc, uint8_t outcome)
   //ghistory = ((ghistory << 1) | outcome);
   lht_tournament[lh_index] = ((lp_index << 1) | outcome);
 }
+*/
 void cleanup_skew_tournament()
 {
   cleanup_skew();
-  free(lht_tournament);
-  free(lpt_tournament);
-  free(gpt_tournament);
-  free(cpt_tournament);
+  cleanup_gshare();
+  //free(lht_tournament);
+  //free(lpt_tournament);
+  //free(gpt_tournament);
+  //free(cpt_tournament);
 }
 
 
@@ -478,78 +608,7 @@ void train_TAGE(uint32_t pc, uint8_t outcome)
 
 
 
-// gshare functions
-void init_gshare()
-{
-  int bht_entries = 1 << ghistoryBits;
-  bht_gshare = (uint8_t *)malloc(bht_entries * sizeof(uint8_t));
-  int i = 0;
-  for (i = 0; i < bht_entries; i++)
-  {
-    bht_gshare[i] = WN;
-  }
-  ghistory = 0;
-}
 
-uint8_t gshare_predict(uint32_t pc)
-{
-  // get lower ghistoryBits of pc
-  uint32_t bht_entries = 1 << ghistoryBits;
-  uint32_t pc_lower_bits = pc & (bht_entries - 1);
-  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
-  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
-  switch (bht_gshare[index])
-  {
-  case WN:
-    return NOTTAKEN;
-  case SN:
-    return NOTTAKEN;
-  case WT:
-    return TAKEN;
-  case ST:
-    return TAKEN;
-  default:
-    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
-    return NOTTAKEN;
-  }
-}
-
-void train_gshare(uint32_t pc, uint8_t outcome)
-{
-  // get lower ghistoryBits of pc
-  uint32_t bht_entries = 1 << ghistoryBits;
-  uint32_t pc_lower_bits = pc & (bht_entries - 1);
-  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
-  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
-
-  // Update state of entry in bht based on outcome
-  switch (bht_gshare[index])
-  {
-  case WN:
-    bht_gshare[index] = (outcome == TAKEN) ? WT : SN;
-    break;
-  case SN:
-    bht_gshare[index] = (outcome == TAKEN) ? WN : SN;
-    break;
-  case WT:
-    bht_gshare[index] = (outcome == TAKEN) ? ST : WN;
-    break;
-  case ST:
-    bht_gshare[index] = (outcome == TAKEN) ? ST : WT;
-    break;
-  default:
-    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
-    break;
-  }
-
-  // Update history register
-  ghistory = ((ghistory << 1) | outcome);
-}
-
-void cleanup_gshare()
-{
-  free(bht_gshare);
-}
 
 // tournament functions
 
