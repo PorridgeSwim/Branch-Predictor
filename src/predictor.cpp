@@ -276,7 +276,7 @@ void cleanup_skew_tournament()
   free(cpt_tournament);
 }
 
-
+/*
 // bimode
 uint8_t *choice_table;
 uint32_t choice_entries = 1 << 16;
@@ -392,6 +392,8 @@ void cleanup_bimode()
 	free(taken_table);
 	free(nottaken_table);
 }
+*/
+
 // TAGE functions
 void init_TAGE()
 {
