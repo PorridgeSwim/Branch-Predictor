@@ -54,11 +54,11 @@ uint8_t *gpt_tournament;
 uint8_t *cpt_tournament;
 // TAGE
 uint32_t **tables;
-int num_table = 5;
-int tage_len = 10;
-int base_len = 8;
-int bimo_len = 12;
-int tag_len = 8;
+uint32_t num_table = 5;
+uint32_t tage_len = 10;
+uint32_t base_len = 8;
+uint32_t bimo_len = 12;
+uint32_t tag_len = 8;
 bool update_u = false;
 uint8_t pred = NOTTAKEN;
 
@@ -76,10 +76,11 @@ uint64_t ghistory;
 uint8_t *bank1;
 uint32_t one_entries = 1 << 14;
 uint8_t *bank2;
-uint32_t two_entries = 1 << 14;
+uint32_t two_entries = 1 << 15;
 uint8_t *bank3;
 uint32_t three_entries = 1 << 14;
-
+uint32_t shift1 = 9;
+uint32_t shift2 = 24;
 void init_skew()
 {
 	int i;
@@ -109,11 +110,11 @@ uint8_t skew_predict(uint32_t pc)
 	base_index = pc ^ ghistory;
   one_index = base_index & (one_entries - 1);
   one_pred = bank1[one_index] >> 1;
-  two_index = (ghistory << 6) | (ghistory >> 58);
-  two_index = ((two_index ^ pc) * 0x9E3779B97F4A7C15) & (two_entries - 1);
+  two_index = (ghistory << shift1) | (ghistory >> (64 - shift1));
+  two_index = ((two_index ^ pc) * 0x6484CDA47D757D59) & (two_entries - 1);
   two_pred = bank2[two_index] >> 1;
-  three_index = (ghistory << 25) | (ghistory >> 39);
-  three_index = ((three_index ^ pc) * 0x7E37E37E37E37E37) & (three_entries - 1);
+  three_index = (ghistory << shift2) | (ghistory >> (64 - shift2));
+  three_index = ((three_index ^ pc) * 0x3FF9AEC04B678BAD) & (three_entries - 1);
   three_pred = bank3[three_index] >> 1;
   return (one_pred + two_pred + three_pred) >> 1;
 }
@@ -126,11 +127,11 @@ void train_skew(uint32_t pc, uint8_t outcome)
 	base_index = pc ^ ghistory;
   one_index = base_index & (one_entries - 1);
   one_pred = bank1[one_index] >> 1;
-  two_index = (ghistory << 6) | (ghistory >> 58);
-  two_index = ((two_index ^ pc) * 0x9E3779B97F4A7C15) & (two_entries - 1);
+  two_index = (ghistory << shift1) | (ghistory >> (64 - shift1));
+  two_index = ((two_index ^ pc) * 0x6484CDA47D757D59) & (two_entries - 1);
   two_pred = bank2[two_index] >> 1;
-  three_index = (ghistory << 25) | (ghistory >> 39);
-  three_index = ((three_index ^ pc) * 0x7E37E37E37E37E37) & (three_entries - 1);
+  three_index = (ghistory << shift2) | (ghistory >> (64 - shift2));
+  three_index = ((three_index ^ pc) * 0x3FF9AEC04B678BAD) & (three_entries - 1);
   three_pred = bank3[three_index] >> 1;
   uint8_t vote = (one_pred + two_pred + three_pred) >> 1;
   if (vote != outcome)
@@ -183,9 +184,9 @@ void cleanup_skew()
 
 void init_skew_tournament()
 {
-  lht_entries = 1 << 11; // local history table in tournament
-  lpt_entries = 1 << 10; // local prediction table in tournament
-  cpt_entries = 1 << 12; // choice prediction table in tournament
+  lht_entries = 1 << 11;//11; // local history table in tournament
+  lpt_entries = 1 << 10;//10; // local prediction table in tournament
+  cpt_entries = 1 << 12;//12; // choice prediction table in tournament
   lht_tournament = (uint16_t *)malloc(lht_entries * sizeof(uint16_t));  // local history table
   lpt_tournament = (uint8_t *)malloc(lpt_entries * sizeof(uint8_t));    // local prediction table
   gpt_tournament = (uint8_t *)malloc(gpt_entries * sizeof(uint8_t));    // global prediction table
@@ -217,7 +218,7 @@ uint8_t skew_tournament_predict(uint32_t pc)
 {
   uint32_t gp_index = (ghistory ^ pc) & (gpt_entries - 1);
   uint32_t cp_index = (ghistory ^ pc) & (cpt_entries - 1);
-  uint32_t lh_index = (ghistory ^ pc) & (lht_entries - 1);
+  uint32_t lh_index = ghistory & (lht_entries - 1);
   uint32_t lp_index = lht_tournament[lh_index] & (lpt_entries - 1);
   if (cpt_tournament[cp_index] >= WT)
   {
@@ -234,7 +235,7 @@ void train_skew_tournament(uint32_t pc, uint8_t outcome)
 {
   uint32_t gp_index = (ghistory ^ pc) & (gpt_entries - 1);
   uint32_t cp_index = (ghistory ^ pc) & (cpt_entries - 1);
-  uint32_t lh_index = (ghistory ^ pc) & (lht_entries - 1);
+  uint32_t lh_index = ghistory & (lht_entries - 1);
   uint32_t lp_index = lht_tournament[lh_index] & (lpt_entries - 1);
 
   uint8_t gprediction = gpt_tournament[gp_index] >> 1;
@@ -307,7 +308,7 @@ void init_bimode()
 
 uint8_t choice_prediction;
 uint8_t direction_prediction;
-int index;
+uint32_t index;
 uint8_t bimode_predict(uint32_t pc)
 {
 	index = pc ^ ghistory;
@@ -429,7 +430,7 @@ uint32_t fold(uint32_t his_len, uint32_t res_len)
 
 uint8_t TAGE_predict(uint32_t pc)
 {
-  int provider = 0;
+  uint32_t provider = 0;
   int i;
   uint32_t his_len = base_len;
   uint32_t index, tag1, tag2, provider_entry;
@@ -654,8 +655,8 @@ void init_predictor()
     init_tournament();
     break;
   case CUSTOM:
-	  //init_skew();
-    init_skew_tournament();
+	  init_skew();
+    //init_skew_tournament();
     break;
   default:
     break;
@@ -679,8 +680,8 @@ uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
   case TOURNAMENT:
     return tournament_predict(pc);
   case CUSTOM:
-    //return skew_predict(pc);
-    return skew_tournament_predict(pc);
+    return skew_predict(pc);
+    //return skew_tournament_predict(pc);
   default:
     break;
   }
@@ -707,8 +708,8 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
     case TOURNAMENT:
       return train_tournament(pc, outcome);
     case CUSTOM:
-      //return train_skew(pc, outcome);
-      return train_skew_tournament(pc, outcome);
+      return train_skew(pc, outcome);
+      //return train_skew_tournament(pc, outcome);
     default:
       break;
     }
